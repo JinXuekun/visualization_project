@@ -5,6 +5,7 @@
 <script src="https://d3js.org/d3.v4.min.js"></script>
 <script src="http://d3js.org/topojson.v1.min.js"></script>
 <script type="text/javascript" src="geojson.min.js"></script>
+<script type="text/javascript" src="shadecolor.js"></script>
 <style>
 body, html {
     font-family: arial;
@@ -102,29 +103,6 @@ body, html {
         .style('font-size', '12px')
       	.style('font-weight', 'bold')
       	.text('')
-//画点
-  /*var point;
-  d3.json("lunar_v2.json", function(error, lunarJson) {
-	 if (error) throw error;
-	 //console.log(data[0])
-	 point = GeoJSON.parse(lunarJson.data, {Point: ['lat', 'lng']});
-	 console.log(point.features[0])
-	 group.append('path')
-	  .datum(point)
-	  .attr('class', 'point')
-	  .attr('stroke', "#009")
-	  .attr('fill', "#099")
-	  .attr('d', geoPath)
-	  .on('mouseover', function (d, i) {
-          return tooltip.style('visibility', 'visible').text(point.features[0].properties.CalendarDate)
-        })
-	  .on('mousemove', function (d, i) {
-          return tooltip.style('top', (event.pageY-10)+'px').style('left',(event.pageX+10)+'px')
-        })
-	  .on('mouseout', function (d, i) {
-          return tooltip.style('visibility', 'hidden')
-        })
-  });*/
   
   var point, point_list;
   d3.json("lunar_v2.json", function(error, lunarJson) {
@@ -133,23 +111,26 @@ body, html {
 	 point = GeoJSON.parse(lunarJson.data, {Point: ['lat', 'lng']});
 	 console.log(point.features[0])
 	 point_list = point.features
-	 //for (let i=0; i<point_list.length; i++){
+	 //console.log(point_list)
+	 var colors=ShadeColor("rgb(0,0,0)",point_list.length)
+	 //console.log(colors)
+	 for (let i=0; i<point_list.length; i++){
 		 group.append('path')
-		  .datum(point)
+		  .datum(point_list[i])
 		  .attr('class', 'point')
-		  .attr('stroke', "#009")
-		  .attr('fill', "#099")
+		  .attr('stroke', colors[i])
+		  .attr('fill', colors[i])
 		  .attr('d', geoPath)
-		  .on('mouseover', function (d, i) {
-			  return tooltip.style('visibility', 'visible').text(point_list[0].properties.Gamma)
+		  .on('mouseover', function () {
+			  return tooltip.style('visibility', 'visible').text(point_list[i].properties.CalendarDate+"\n"+point_list[i].properties.EclipseTime)
 			})
-		  .on('mousemove', function (d, i) {
+		  .on('mousemove', function () {
 			  return tooltip.style('top', (event.pageY-10)+'px').style('left',(event.pageX+10)+'px')
 			})
-		  .on('mouseout', function (d, i) {
+		  .on('mouseout', function () {
 			  return tooltip.style('visibility', 'hidden')
 			})
-	 //}
+	 }
 	 
   });
   
@@ -172,9 +153,9 @@ body, html {
   };
 
   function updatePaths(svg, graticule, world, geoPath, point) {
-     svg.selectAll('path.graticule').datum(graticule).attr('d', geoPath);
-     svg.selectAll('path.land').datum(world).attr('d', geoPath);
-	 svg.selectAll('path.point').datum(point).attr('d', geoPath);
+     svg.selectAll('path.graticule').attr('d', geoPath);
+     svg.selectAll('path.land').attr('d', geoPath);
+	 svg.selectAll('path.point').attr('d', geoPath);
   };
   // 加载全球json数据，绘制陆地
   d3.json("land(1).json", function(error, worldJSON) {
@@ -185,34 +166,6 @@ body, html {
       .attr("class", "land")
       .attr("d", geoPath);
   });
-
-  var i=0;
-
-  function redraw(){
-      let proj = projection.rotate([0.2 * i, 0, 0]),
-          path = d3.geoPath().projection(projection)
-
-      group.selectAll("path")
-          .datum(world)
-          .attr("class", "land")
-          .attr("d", geoPath);
-
-      group.select("path")
-          .datum(graticule)
-          .attr("class", "land")
-          .attr("d", geoPath);
-	  
-	  group.select("path")
-          .datum(point)
-          .attr("class", "point")
-          .attr("d", geoPath);
-
-      i ++
-
-      window.requestAnimationFrame(redraw)
-  }
-// 调用地球重绘函数
-//window.requestAnimationFrame(redraw)
 
 </script>
 
