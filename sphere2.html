@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="http://d3js.org/topojson.v1.min.js"></script>
+<script type="text/javascript" src="geojson.min.js"></script>
+<script type="text/javascript" src="shadecolor.js"></script>
+<style>
+body, html {
+    font-family: arial;
+}
+.map {
+    float: left;
+    padding: 5px;
+    border: solid 1px #eee;
+    border-radius: 5px;
+}
+.graticule {
+  fill: none;
+  stroke: #777;
+  stroke-width: .5px;
+  stroke-opacity: .5;
+  pointer-events: all;
+}
+.land {
+  fill: none;
+  stroke: #000;
+  stroke-width: 1;
+}
+.query{
+	float: right;
+}
+</style>
+</head>
+
+<body>
+<div id ="query" class="query">
+    <font size="5" style="margin-right: 400px;margin-top: 50px">请输入出生年份:</font> <br>       <!-- 这里加了一行 -->
+    inputYear: <input type="text" id="num"><br>                                                 <!-- 这里加了一行 -->
+	<input type="button" value="提交" id="change_num">
+</div>
+
+<div id="map" class="map">
+</div> 
+<script>
+	
+    
+  var num = document.getElementById("num");                  <!-- 获取输入框的值 -->
+  var change_num = document.getElementById("change_num");    <!-- 提交按钮的动作 -->
+  
+  var width = 600,
+      height = 600,
+      scale = 200,
+      origin = {
+        x: 55,
+        y: -40
+      };
+  var world;
+// 选择body、div确定绘制地球位置和宽高
+  var svg = d3.select('body').select('#map').append('svg')
+    .attr('width', width)
+    .attr('height', height);
+
+  var group = svg.append("g").datum({
+    x: 0,
+    y: 0
+  });
+// 定义投影坐标系统
+  var projection = d3.geoOrthographic()
+    .scale(scale)
+    .translate([width / 2, height / 2])
+    .rotate([origin.x, origin.y])
+    .center([0, 0])
+    .clipAngle(90);
+// 生成地理投影路径
+  var geoPath = d3.geoPath()
+    .projection(projection);
+// 创建地球网格
+  var graticule = d3.geoGraticule();
+
+  // 地球缩放和拖拽
+  svg.call(d3.zoom().on('zoom', zoomed));
+
+  group.call(d3.drag().on('drag', dragged));
+
+  // code snippet from http://stackoverflow.com/questions/36614251
+  var lambda = d3.scaleLinear()
+    .domain([-width, width])
+    .range([-180, 180])
+
+  var phi = d3.scaleLinear()
+    .domain([-height, height])
+    .range([90, -90]);
+	// 给地球添加网格并定义样式
+  group.append('path')
+    .datum(graticule)
+    .attr('class', 'graticule')
+    .attr('d', geoPath);
+    // 加载全球json数据，绘制陆地
+  d3.json("land(1).json", function(error, worldJSON) {
+     if (error) throw error;
+     world = topojson.feature(worldJSON, worldJSON.objects.land);
+     group.append("path")
+      .datum(world)
+      .attr("class", "land")
+      .attr("d", geoPath);
+  });
+  
+  var point, point_list;
+  change_num.onclick = function(){
+	var year = parseInt(num.value);
+	var year_final = String(year+100)
+	console.log(year_final);      <!-- 用控制台看看 -->
+    let tooltip = d3.select('body')
+	.append('div')
+	.style('position', 'absolute')
+	.style('z-index', '10')
+	.style('color', '#3497db')
+	.style('visibility', 'hidden')   // 是否可见（一开始设置为隐藏）
+	.style('font-size', '12px')
+	.style('font-weight', 'bold')
+	.text('')
+    svg.selectAll('path.point').remove()
+    d3.json("lunar_v2.json", function(error, lunarJson) {
+	 if (error) throw error;
+	 //console.log(data[0])
+	 point = GeoJSON.parse(lunarJson.data, {Point: ['lat', 'lng']});
+	 console.log(point.features[0])
+	 point_list = []
+	 for (let i=0;i<point.features.length;i++){
+		if (point.features[i].properties.CalendarDate < year_final){
+			point_list.push(point.features[i])
+		}
+	 }
+	 console.log(point_list.length)
+	 //console.log(point_list)
+	 var colors=ShadeColor("rgb(0,0,0)",point_list.length)
+	 //console.log(colors)
+	 for (let i=0; i<point_list.length; i++){
+		 group.append('path')
+		  .datum(point_list[i])
+		  .attr('class', 'point')
+		  .attr('stroke', colors[i])
+		  .attr('fill', colors[i])
+		  .attr('d', geoPath)
+		  .on('mouseover', function () {
+			  return tooltip.style('visibility', 'visible').text(point_list[i].properties.CalendarDate+"\n"+point_list[i].properties.EclipseTime)
+			})
+		  .on('mousemove', function () {
+			  return tooltip.style('top', (event.pageY-10)+'px').style('left',(event.pageX+10)+'px')
+			})
+		  .on('mouseout', function () {
+			  return tooltip.style('visibility', 'hidden')
+			})
+	 }
+    });	
+  }
+  
+ 
+
+  function dragged(d) {
+    var r = {
+      x: lambda((d.x = d3.event.x)),
+      y: phi((d.y = d3.event.y))
+    };
+    projection.rotate([origin.x + r.x, origin.y + r.y]);
+    updatePaths(svg, graticule, world, geoPath, point);
+  };
+
+  function zoomed() {
+    var transform = d3.event.transform;
+    var k = Math.sqrt(100 / projection.scale());
+    projection.scale(scale * transform.k)
+    updatePaths(svg, graticule, world, geoPath, point);
+  };
+
+  function updatePaths(svg, graticule, world, geoPath, point) {
+     svg.selectAll('path.graticule').attr('d', geoPath);
+     svg.selectAll('path.land').attr('d', geoPath);
+	 svg.selectAll('path.point').attr('d', geoPath);
+  };
+
+</script>
+
+</body>
+
+</html>
